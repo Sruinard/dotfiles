@@ -1,51 +1,19 @@
-# --- 1. Oh My Zsh Configuration ---
+# --- 1. Oh My Zsh ---
 export ZSH="$HOME/.oh-my-zsh"
-
-# Theme
 ZSH_THEME="robbyrussell"
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 
-# Plugins (Ensure these were cloned by the install script)
-plugins=(
-  git 
-  zsh-autosuggestions 
-  zsh-syntax-highlighting
-)
+[ -f "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
-# Load Oh My Zsh
-# We check if the file exists first to avoid errors on fresh systems
-if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
-  source "$ZSH/oh-my-zsh.sh"
+# --- 2. Tool Paths ---
+if [ "$(uname)" = "Darwin" ]; then
+    [ -f /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+    [ -f /usr/local/bin/brew ] && eval "$(/usr/local/bin/brew shellenv)"
 fi
 
-# --- 2. Environment & Tool Paths ---
-
-# Homebrew Detection (Apple Silicon vs Intel vs Linux)
-if [[ "$(uname)" == "Darwin" ]]; then
-    [[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
-    [[ -f /usr/local/bin/brew ]] && eval "$(/usr/local/bin/brew shellenv)"
-fi
-
-# uv (Python Package Manager)
-# uv usually installs to ~/.local/bin or ~/.cargo/bin
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# Google Cloud SDK
-# Check for Linux manual install path first, then Homebrew path
-if [[ -d "$HOME/google-cloud-sdk" ]]; then
+if [ -d "$HOME/google-cloud-sdk" ]; then
     source "$HOME/google-cloud-sdk/path.zsh.inc"
     source "$HOME/google-cloud-sdk/completion.zsh.inc"
-elif command -v brew &>/dev/null; then
-    # Dynamic check for Brew-installed gcloud
-    GCLOUD_PATH="$(brew --prefix)/share/google-cloud-sdk"
-    if [[ -d "$GCLOUD_PATH" ]]; then
-        source "$GCLOUD_PATH/path.zsh.inc"
-        source "$GCLOUD_PATH/completion.zsh.inc"
-    fi
 fi
-
-# --- 3. Better Defaults ---
-# Enable true color support for btop and others
-export COLORTERM=truecolor
-
-# Ensure GPG/SSH works correctly in subshells (Common in DevContainers)
-export GPG_TTY=$TTY

@@ -1,7 +1,10 @@
-#!/bin/bash
+#!/bin/sh
+# Use /bin/sh for maximum compatibility across all environments
 set -e
 
 DOTFILES_DIR="$HOME/dotfiles"
+
+# 1. Self-Cloning logic
 if [ ! -d "$DOTFILES_DIR" ]; then
     echo "📥 Cloning Sruinard/dotfiles..."
     git clone https://github.com/Sruinard/dotfiles.git "$DOTFILES_DIR"
@@ -10,50 +13,61 @@ fi
 OS=$(uname -s)
 ARCH=$(uname -m)
 
-# --- Tool Installation ---
+# 2. Package Installation
 if [ "$OS" = "Darwin" ]; then
-    if ! command -v brew >/dev/null; then
+    if ! command -v brew >/dev/null 2>&1; then
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        [ "$ARCH" = "arm64" ] && eval "$(/opt/homebrew/bin/brew shellenv)" || eval "$(/usr/local/bin/brew shellenv)"
+        if [ "$ARCH" = "arm64" ]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        else
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
     fi
     brew install btop lazygit jesseduffield/lazydocker/lazydocker jq google-cloud-sdk
 else
+    # Linux (DevContainer/VM)
     sudo apt-get update && sudo apt-get install -y zsh btop jq curl git
     for tool in lazygit lazydocker; do
         REPO_PATH="jesseduffield/$tool"
         VERSION=$(curl -s "https://api.github.com/repos/$REPO_PATH/releases/latest" | jq -r .tag_name | sed 's/v//')
         curl -Lo "${tool}.tar.gz" "https://github.com/$REPO_PATH/releases/latest/download/${tool}_${VERSION}_Linux_x86_64.tar.gz"
-        tar xf "${tool}.tar.gz" $tool && sudo install $tool /usr/local/bin && rm "${tool}.tar.gz" $tool
+        tar xf "${tool}.tar.gz" "$tool" && sudo install "$tool" /usr/local/bin && rm "${tool}.tar.gz" "$tool"
     done
 fi
 
-# --- uv & Oh My Zsh ---
-! command -v uv >/dev/null && curl -LsSf https://astral.sh/uv/install.sh | sh
-[ ! -d "$HOME/.oh-my-zsh" ] && sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# 3. Tool Installers
+! command -v uv >/dev/null 2>&1 && curl -LsSf https://astral.sh/uv/install.sh | sh
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
 
-# Plugins
+# 4. Plugins
 ZSH_CUSTOM=${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}
-[ ! -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ] && git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM}/plugins/zsh-autosuggestions
-[ ! -d "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ] && git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting
+if [ ! -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM}/plugins/zsh-autosuggestions"
+fi
+if [ ! -d "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting"
+fi
 
-# --- The Hook ---
+# 5. The Hook & Shell Switch
 ZSHRC="$HOME/.zshrc"
+BASHRC="$HOME/.bashrc"
 HOOK="source $DOTFILES_DIR/zsh/.zshrc"
-touch "$ZSHRC"
-# Remove old broken -e lines
-sed -i '/^-e /d' "$ZSHRC" 2>/dev/null || sed -i '' '/^-e /d' "$ZSHRC" 2>/dev/null
 
-if ! grep -qF "$HOOK" "$ZSHRC"; then
+# Clean previous errors
+[ -f "$ZSHRC" ] && sed -i '/^-e /d' "$ZSHRC"
+
+# Add hook if missing
+if ! grep -q "$HOOK" "$ZSHRC" 2>/dev/null; then
     printf "\n%s\n" "$HOOK" >> "$ZSHRC"
 fi
 
-# --- AUTO-SWITCH TO ZSH ---
-# This ensures that even if 'chsh' fails, your shell switches to Zsh on login
-BASHRC="$HOME/.bashrc"
-SWITCH_CMD='if [ -t 1 ]; then exec zsh; fi'
-if ! grep -q "exec zsh" "$BASHRC"; then
-    printf "\n# Auto-switch to zsh\n%s\n" "$SWITCH_CMD" >> "$BASHRC"
+# THE KEY: Ensure the session switches to Zsh immediately on login
+AUTO_SWITCH='if [ -t 1 ]; then exec zsh; fi'
+if ! grep -q "exec zsh" "$BASHRC" 2>/dev/null; then
+    printf "\n# Auto-switch to zsh\n%s\n" "$AUTO_SWITCH" >> "$BASHRC"
 fi
 
-echo "✨ Installation complete! Switching to zsh..."
+echo "✨ Installation complete! Launching Zsh..."
 exec zsh
