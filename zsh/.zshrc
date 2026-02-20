@@ -1,28 +1,51 @@
-# --- 1. Oh My Zsh Setup ---
+# --- 1. Oh My Zsh Configuration ---
 export ZSH="$HOME/.oh-my-zsh"
-# Includes standard autocomplete and the two requested plugins
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 
-# Silently source Oh My Zsh
-source $ZSH/oh-my-zsh.sh
+# Theme
+ZSH_THEME="robbyrussell"
 
-# --- 2. Tool-Specific Paths & Initializations ---
+# Plugins (Ensure these were cloned by the install script)
+plugins=(
+  git 
+  zsh-autosuggestions 
+  zsh-syntax-highlighting
+)
 
-# Homebrew (Auto-detects Apple Silicon vs Intel vs Linuxbrew)
+# Load Oh My Zsh
+# We check if the file exists first to avoid errors on fresh systems
+if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
+  source "$ZSH/oh-my-zsh.sh"
+fi
+
+# --- 2. Environment & Tool Paths ---
+
+# Homebrew Detection (Apple Silicon vs Intel vs Linux)
 if [[ "$(uname)" == "Darwin" ]]; then
     [[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
     [[ -f /usr/local/bin/brew ]] && eval "$(/usr/local/bin/brew shellenv)"
 fi
 
 # uv (Python Package Manager)
+# uv usually installs to ~/.local/bin or ~/.cargo/bin
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# gcloud (Google Cloud SDK)
-# Detects both Brew (Mac) and Manual (Linux/DevContainer) paths
+# Google Cloud SDK
+# Check for Linux manual install path first, then Homebrew path
 if [[ -d "$HOME/google-cloud-sdk" ]]; then
     source "$HOME/google-cloud-sdk/path.zsh.inc"
     source "$HOME/google-cloud-sdk/completion.zsh.inc"
-elif command -v brew &>/dev/null && [[ -d "$(brew --prefix)/share/google-cloud-sdk" ]]; then
-    source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
-    source "$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
+elif command -v brew &>/dev/null; then
+    # Dynamic check for Brew-installed gcloud
+    GCLOUD_PATH="$(brew --prefix)/share/google-cloud-sdk"
+    if [[ -d "$GCLOUD_PATH" ]]; then
+        source "$GCLOUD_PATH/path.zsh.inc"
+        source "$GCLOUD_PATH/completion.zsh.inc"
+    fi
 fi
+
+# --- 3. Better Defaults ---
+# Enable true color support for btop and others
+export COLORTERM=truecolor
+
+# Ensure GPG/SSH works correctly in subshells (Common in DevContainers)
+export GPG_TTY=$TTY
